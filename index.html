@@ -49,7 +49,7 @@
   .form-group label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .form-group input { height:38px; border:1px solid var(--border); border-radius:var(--radius-sm); padding:0 10px; font-size:14px; color:var(--text); background:var(--surface2); font-family:'SF Mono','Fira Code',monospace; transition:border-color .15s,box-shadow .15s; width:100%; }
   .form-group input:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(24,95,165,0.15); }
-  input.date-ro { color:var(--muted); cursor:default; font-family:-apple-system,'Segoe UI',system-ui,sans-serif; font-size:13px; }
+  input[type=date] { color:var(--text); font-family:-apple-system,'Segoe UI',system-ui,sans-serif; font-size:13px; }
   .note-row { margin-bottom:14px; }
   .note-row label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:5px; }
   .note-row input { width:100%; height:38px; border:1px solid var(--border); border-radius:var(--radius-sm); padding:0 10px; font-size:13px; color:var(--text); background:var(--surface2); font-family:-apple-system,'Segoe UI',system-ui,sans-serif; transition:border-color .15s,box-shadow .15s; }
@@ -127,7 +127,7 @@
   <div class="card">
     <div class="card-title">Citire nouă</div>
     <div class="form-grid" id="form-grid">
-      <div class="form-group"><label>Datum</label><input type="text" id="f-datum" class="date-ro" readonly></div>
+      <div class="form-group"><label>Datum</label><input type="date" id="f-datum"></div>
       <div class="form-group"><label>Uhr</label><input type="time" id="f-uhr"></div>
     </div>
     <div class="note-row">
@@ -180,7 +180,8 @@ const KEY_E='brunnen-entries',KEY_M='brunnen-meters-v2';
 const DEFAULT_METERS=[{id:'br20',label:'Br. 20'},{id:'br21',label:'Br. 21'},{id:'br23',label:'Br. 23'},{id:'br24',label:'Br. 24'},{id:'br33',label:'Br. 33'}];
 let entries=[],meters=[],metersOpen=true,editId=null;
 const $=id=>document.getElementById(id);
-const today=()=>new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+const today=()=>new Date().toISOString().slice(0,10);
+const fmtDate=iso=>{ try{ const[y,m,d]=iso.split('-'); return`${d}.${m}.${y}`; }catch(e){ return iso||''; } };
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const fmt=v=>(v===''||v==null)?'—':(isNaN(Number(v))?String(v):Number(v).toLocaleString('de-DE'));
 function diffCell(v,p){if(v===''||v==null||p===''||p==null)return'<td class="d-neu">—</td>';const d=Number(v)-Number(p);if(isNaN(d))return'<td>—</td>';const cls=d>0?'d-pos':d<0?'d-neg':'d-neu';return`<td class="${cls}">${d>0?'+':''}${d.toLocaleString('de-DE')}</td>`;}
@@ -189,7 +190,7 @@ function saveMeters(){try{localStorage.setItem(KEY_M,JSON.stringify(meters));}ca
 function load(){try{const r=localStorage.getItem(KEY_M);meters=r?JSON.parse(r):DEFAULT_METERS;}catch(e){meters=DEFAULT_METERS;}try{const r=localStorage.getItem(KEY_E);entries=r?JSON.parse(r):[];}catch(e){entries=[];}renderAll();}
 function renderAll(){renderChips();renderForm();renderHead();renderBody();renderStats();}
 function renderChips(){const list=$('meters-list');if(!meters.length){list.innerHTML='<span style="font-size:12px;color:var(--hint)">Niciun apometru configurat.</span>';return;}list.innerHTML=meters.map(m=>`<span class="meter-chip">${esc(m.label)}<button class="chip-btn chip-edit" onclick="openModal('${esc(m.id)}')" title="Redenumește">✎</button><button class="chip-btn" onclick="removeMeter('${esc(m.id)}')" title="Șterge" style="font-size:15px">×</button></span>`).join('');}
-function renderForm(){$('form-grid').innerHTML=`<div class="form-group"><label>Datum</label><input type="text" id="f-datum" class="date-ro" readonly></div><div class="form-group"><label>Uhr</label><input type="time" id="f-uhr"></div>${meters.map(m=>`<div class="form-group"><label title="${esc(m.label)}">${esc(m.label)}</label><input type="number" id="f-${esc(m.id)}" placeholder="—"></div>`).join('')}`;$('f-datum').value=today();}
+function renderForm(){$('form-grid').innerHTML=`<div class="form-group"><label>Datum</label><input type="date" id="f-datum"></div><div class="form-group"><label>Uhr</label><input type="time" id="f-uhr"></div>${meters.map(m=>`<div class="form-group"><label title="${esc(m.label)}">${esc(m.label)}</label><input type="number" id="f-${esc(m.id)}" placeholder="—"></div>`).join('')}`;$('f-datum').value=today();}
 function renderHead(){$('tbl-head').innerHTML=`<tr><th>Datum</th><th>Uhr</th>${meters.map(m=>`<th>${esc(m.label)}</th><th>Δ</th>`).join('')}<th>Bemerkung</th><th></th></tr>`;}
 function renderBody(){$('entry-count').textContent=entries.length+' înregistrări';const body=$('tbl-body'),cols=2+meters.length*2+2;if(!entries.length){body.innerHTML=`<tr><td colspan="${cols}" class="empty">Nicio înregistrare. Adaugă prima citire!</td></tr>`;return;}body.innerHTML=[...entries].reverse().map((e,ri)=>{const oi=entries.length-1-ri,prev=oi>0?entries[oi-1]:null;return`<tr><td>${e.datum}</td><td>${e.uhr||'—'}</td>${meters.map(m=>`<td>${fmt(e[m.id])}</td>${diffCell(e[m.id],prev?.[m.id])}`).join('')}<td class="note-cell" title="${esc(e.note)}">${esc(e.note)}</td><td><button class="del-btn" onclick="delEntry(${oi})" title="Șterge">✕</button></td></tr>`;}).join('');}
 function renderStats(){const row=$('stats-row');if(!entries.length||!meters.length){row.style.display='none';return;}const last=entries[entries.length-1],prev=entries.length>1?entries[entries.length-2]:null;row.style.display='grid';row.innerHTML=meters.map(m=>{const v=last[m.id],p=prev?.[m.id];let dh='';if(v!==''&&v!=null&&p!=null&&p!==''){const d=Number(v)-Number(p);if(!isNaN(d)){const cls=d>0?'d-pos':d<0?'d-neg':'d-neu';dh=`<div class="stat-diff ${cls}">${d>0?'+':''}${d.toLocaleString('de-DE')} față de anterior</div>`;}}return`<div class="stat-card"><div class="stat-label">${esc(m.label)}</div><div class="stat-val">${fmt(v)}</div>${dh}</div>`;}).join('');}
@@ -200,7 +201,7 @@ function closeModal(){$('edit-modal').classList.remove('open');editId=null;}
 function modalBg(e){if(e.target===$('edit-modal'))closeModal();}
 function confirmEdit(){const label=$('edit-input').value.trim();if(!label){$('edit-input').focus();return;}const m=meters.find(x=>x.id===editId);if(!m)return;if(meters.some(x=>x.id!==editId&&x.label.toLowerCase()===label.toLowerCase())){showToast('Există deja un apometru cu acest nume!');return;}m.label=label;saveMeters();closeModal();renderAll();showToast('✓ Redenumit!');}
 function toggleMeters(){metersOpen=!metersOpen;$('meters-body').style.display=metersOpen?'':'none';$('toggle-btn').textContent=metersOpen?'Ascunde':'Arată';}
-function saveEntry(){const btn=$('btn-save');btn.disabled=true;btn.textContent='…';const entry={datum:today(),uhr:$('f-uhr').value,note:$('f-note').value.trim(),ts:Date.now()};meters.forEach(m=>{const el=$('f-'+m.id);entry[m.id]=el?el.value:'';});entries.push(entry);saveEntries();renderBody();renderStats();clearForm();showToast('✓ Înregistrare salvată!');btn.disabled=false;btn.textContent='＋ Salvează';}
+function saveEntry(){const btn=$('btn-save');btn.disabled=true;btn.textContent='…';const entry={datum:fmtDate($('f-datum').value),uhr:$('f-uhr').value,note:$('f-note').value.trim(),ts:Date.now()};meters.forEach(m=>{const el=$('f-'+m.id);entry[m.id]=el?el.value:'';});entries.push(entry);saveEntries();renderBody();renderStats();clearForm();showToast('✓ Înregistrare salvată!');btn.disabled=false;btn.textContent='＋ Salvează';}
 function clearForm(){$('f-uhr').value='';$('f-note').value='';meters.forEach(m=>{const el=$('f-'+m.id);if(el)el.value='';});$('f-datum').value=today();$('f-uhr').focus();}
 function delEntry(idx){if(!confirm('Ștergi această înregistrare?'))return;entries.splice(idx,1);saveEntries();renderBody();renderStats();showToast('Intrare ștearsă.');}
 function clearAll(){if(!confirm('Ștergi TOATE înregistrările? Ireversibil!'))return;entries=[];saveEntries();renderBody();renderStats();showToast('Toate datele au fost șterse.');}
